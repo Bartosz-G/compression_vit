@@ -10,7 +10,7 @@ from copy import deepcopy
 
 
 class CIFAR10_custom(CIFAR10):
-    def __init__(self,*args, **kwargs) -> None:
+    def __init__(self, *args, **kwargs) -> None:
         super(CIFAR10_custom, self).__init__(*args, **kwargs)
         self.format = 'rgb'
 
