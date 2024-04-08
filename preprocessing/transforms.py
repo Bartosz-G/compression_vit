@@ -34,7 +34,7 @@ class ZigZagOrder:
 
     block = (8, 8)
 
-    def __call__(self, image):
+    def __call__(self, image: torch.Tensor) -> torch.Tensor:
 
         batch_size = image.shape[:-3]
         channels = image.shape[-3]
@@ -46,11 +46,13 @@ class ZigZagOrder:
 
 
 class ChooseAC:
-    #TODO: Implement
     def __init__(self, ac: int):
-        pass
+        self.ac = ac
+    def __call__(self, image: torch.Tensor) -> torch.Tensor:
+        return image[..., :self.ac + 1] # + 1 to get DCs at the 0th position
+
 
 class FlattenZigZag:
-    #TODO: Implement
-    pass
+    def __call__(self, image: torch.Tensor) -> torch.Tensor:
+        return torch.flatten(image, start_dim = -2, end_dim = -1)
 #%%
