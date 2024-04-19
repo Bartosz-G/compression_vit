@@ -36,7 +36,7 @@ ALPHA = 1
 
 
 class ApplyAcrossBatch:
-    def __int__(self, func) -> None:
+    def __init__(self, func) -> None:
         self.func = func
 
     def __call__(self, array: np.ndarray, *args, **kwargs) -> np.ndarray:
@@ -92,7 +92,7 @@ class BlockwiseQuantize:
         self.alpha = alpha
 
     def __call__(self, dct, mode = 'l', *args, **kwargs) -> np.ndarray:
-        quantization_matrix = self.luminance_quantization_matrix if mode == 'l' else self.chrominance_quantization_matrix
+        quantization_matrix = self.luminance_matrix if mode == 'l' else self.chrominance_matrix
 
         quantization_matrix = quantization_matrix * self.alpha
 
