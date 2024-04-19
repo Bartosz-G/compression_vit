@@ -2,7 +2,8 @@ import numpy as np
 import torchvision
 from torchvision.datasets import CIFAR10
 from scipy.fft import dctn, idctn
-from typing import Optional, Tuple, Any
+from typing import Optional, Tuple, Any, Union, Callable
+from pathlib import Path
 from copy import deepcopy
 
 
@@ -137,8 +138,17 @@ compress_quantise_across_channels = CompressQuantiseAcrossChannels(blockwise_com
 
 
 class CIFAR10_custom(CIFAR10):
-    def __init__(self, compression = None, *args, **kwargs) -> None:
-        super(CIFAR10_custom, self).__init__(*args, **kwargs)
+    def __init__(self, root: Union[str, Path],
+                 train: bool = True,
+                 transform: Optional[Callable] = None,
+                 target_transform: Optional[Callable] = None,
+                 download: bool = False,
+                 compression: Optional[Callable] = None) -> None:
+        super(CIFAR10_custom, self).__init__(root=root,
+                                             train=train,
+                                             transform=transform,
+                                             target_transform=target_transform,
+                                             download=download)
         self.format = 'rgb'
         if compression is None:
             self.apply_compression = ApplyAcrossBatch(compress_quantise_across_channels)
