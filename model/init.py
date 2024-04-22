@@ -1,5 +1,37 @@
 import torch
 from torch import nn
+import torch
+import numpy as np
+import random
+from contextlib import contextmanager
+
+
+@contextmanager
+def set_seed(seed):
+    # Save the state of the random number generators
+    state_torch = torch.random.get_rng_state()
+    if torch.cuda.is_available():
+        state_cuda = torch.cuda.random.get_rng_state()
+    state_np = np.random.get_state()
+    state_random = random.getstate()
+
+    # Set the new seed temporarily
+    torch.manual_seed(seed)
+    np.random.seed(seed)
+    random.seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
+
+    try:
+        # Yield control to the block of code
+        yield
+    finally:
+        # Restore the original random number generator states
+        torch.random.set_rng_state(state_torch)
+        if torch.cuda.is_available():
+            torch.cuda.random.set_rng_state(state_cuda)
+        np.random.set_state(state_np)
+        random.setstate(state_random)
 
 
 
