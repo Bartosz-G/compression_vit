@@ -62,6 +62,13 @@ def init_truncated_normal(m):
             truncated_normal_(m.data, mean=0.0, std=0.01)
 
 
+def init_kaiming_normal(m):
+    if isinstance(m, nn.Conv2d):
+        nn.init.kaiming_normal_(m.weight, nonlinearity='relu')
+        if m.bias is not None:
+            nn.init.constant_(m.bias, 0.0)
+
+
 def init_normal(m):
     """
     Initialize weights with normal distribution and biases to zero for nn.Linear layers.
