@@ -1,6 +1,6 @@
 import torch
 from torch import nn
-from nn import LinearProjection, LinearProjectionOfFlattenedPatches
+from .nn import LinearProjection, LinearProjectionOfFlattenedPatches
 
 
 
@@ -129,13 +129,11 @@ class VisionTransformer(nn.Module):
         assert N % 1 == 0, f"num_patches must be divisible by patch size: {patch_size}, size: {self.img_size}"
         N = int(N)
 
-        # [class] token
-        self.class_embedding = nn.Parameter(torch.randn(1, d_model))
+        self.cls_token = nn.Parameter(torch.randn(1, d_model))
 
         self.position_embedding = nn.Parameter(torch.randn(N + 1, d_model)) if learnable_positional else None
 
-
-        self.linear_projection_of_flattened_patches = LinearProjectionOfFlattenedPatches(
+        self.linear_projection = LinearProjectionOfFlattenedPatches(
             in_channels, height, width, patch_size, d_model)
 
         transformer_encoder_list = nn.ModuleList()
@@ -185,7 +183,7 @@ class VisionTransformer(nn.Module):
 
     def forward(self, X):
         batch_size = X.shape[:-3]
-        patches = self.linear_projection_of_flattened_patches(X)
+        patches = self.linear_projection(X)
         patches = self._concat_cls_token(patches)
         patches = self._with_positional(patches)
         patches = self.transformer_encoder(patches)

@@ -25,6 +25,29 @@ class LinearProjection(nn.Module):
 
 
 
+class LinearProjection1d(nn.Module):
+    def __init__(self, ac: int, channels: int, patch_num: int, d_model: int = 248, bias:bool = True):
+        super(LinearProjection1d, self).__init__()
+        self.dct = ac + 1
+        self.channels = channels
+        self.d_model = d_model
+        self.patch_num = patch_num
+
+
+        self.projection = nn.Linear(self.dct * channels * patch_num, d_model, bias=bias)
+
+    def init_weights(self, init_fn):
+        init_fn(self.projection.weight)
+
+    def forward(self, X):
+        batch_size = X.shape[:-3]
+        permutate_dim = (0, 2, 1, 3) if batch_size else (1, 0, 2)
+
+        X = X.permute(permutate_dim).reshape(*batch_size, self.patch_num, -1).flatten(start_dim=1, end_dim=-1)
+        return self.projection(X)
+
+
+
 class LinearProjectionOfFlattenedPatches(nn.Module):
     def __init__(self, in_channels: int, heigth: int, width: int, patch_size: int, d_model: int):
         super(LinearProjectionOfFlattenedPatches, self).__init__()
@@ -39,6 +62,9 @@ class LinearProjectionOfFlattenedPatches(nn.Module):
 
         # Linear projection of patches into latent vector of dimension d_model
         self.projection = nn.Linear(patch_dimensions, d_model)
+
+    def init_weights(self, init_fn):
+        init_fn(self.projection.weight)
 
     def forward(self, x):
         batch_size = x.shape[:-3]
