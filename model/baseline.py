@@ -1,6 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
+from nn import LinearProjection
 
 class ResBlock(nn.Module):
     expansion = 1
@@ -117,3 +118,50 @@ class ResNet18(nn.Module):
         x = self.fc(x)
 
         return x
+
+
+
+class NeuralNet(nn.Module):
+    def __init__(self,
+                 ac: int,
+                 channels: int,
+                 patch_num: int,
+                 num_classes: int,
+                 hidden_size: int = 4,
+                 dim_feedforward: int = 1024,
+                 activation = nn.ReLU(),
+                 bias = True,) -> None:
+        super(NeuralNet, self).__init__()
+        self.dct = ac + 1
+
+        self.linear_projection = LinearProjection(ac=ac,
+                                                  channels=channels,
+                                                  patch_num=patch_num,
+                                                  d_model=dim_feedforward,
+                                                  bias=bias)
+
+        layer_list = nn.ModuleList()
+        for _ in range(hidden_size):
+            layer_list.append(
+                nn.Linear(dim_feedforward, dim_feedforward, bias=bias),
+                nn.BatchNorm1d(dim_feedforward),
+                activation,
+            )
+
+
+        self.backbone = nn.Sequential(*layer_list)
+        self.head = nn.Linear(dim_feedforward, num_classes, bias=bias)
+
+    def init_weights(self, init_fn) -> None:
+        init_fn(self.linear_projection.weight)
+        init_fn(self.head.weight)
+        init_fn(self.backbone.weight)
+
+    def forward(self, x):
+        x = self.linear_projection(x)
+        x = self.backbone(x)
+        return self.head(x)
+
+
+
+
