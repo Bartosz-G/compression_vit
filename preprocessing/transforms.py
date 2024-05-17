@@ -33,9 +33,9 @@ class ConvertToYcbcr:
         g = img[..., 1, :, :]
         b = img[..., 2, :, :]
 
-        y = torch.tensor([0.299], dtype=torch.float64) * r + torch.tensor([0.587], dtype=torch.float64) * g + torch.tensor([0.114], dtype=torch.float64) * b
-        cb = torch.tensor([-0.168736], dtype=torch.float64) * r - torch.tensor([0.331264], dtype=torch.float64) * g + torch.tensor([0.5], dtype=torch.float64) * b + torch.tensor([128], dtype=torch.float64)
-        cr = torch.tensor([0.5], dtype=torch.float64) * r - torch.tensor([0.418688], dtype=torch.float64) * g - torch.tensor([0.081312], dtype=torch.float64) * b + torch.tensor([128], dtype=torch.float64)
+        y = 0.299 * r + 0.587 * g + 0.114 * b
+        cb = -0.168736 * r - 0.331264 * g + 0.5 * b + 128
+        cr = 0.5 * r - 0.418688 * g - 0.081312 * b + 128
         return torch.stack((y, cb, cr), dim=0)
 
 
@@ -214,55 +214,3 @@ class _BlockwiseDct:
         return dct_blocks
 
 
-
-class _DefaultBlockwiseQuantize:
-    def __init__(self,
-                 luminance_matrix: np.ndarray = LUMINANCE_QUANTIZATION_MATRIX,
-                 chrominance_matrix: np.ndarray = CHROMINANCE_QUANTIZATION_MATRIX,
-                 block_size: tuple[int, int] = (8, 8),
-                 alpha: int = 1,) -> None:
-        self.luminance_matrix = luminance_matrix
-        self.chrominance_matrix = chrominance_matrix
-        self.block_size = block_size
-        self.alpha = alpha
-
-    def __call__(self, dct, mode = 'l', *args, **kwargs) -> np.ndarray:
-        quantization_matrix = self.luminance_matrix if mode == 'l' else self.chrominance_matrix
-
-        quantization_matrix = quantization_matrix * self.alpha
-
-        height, width = dct.shape
-        block_height_num, block_width_num = height // self.block_size[0], width // self.block_size[1]
-
-        quantization_matrix_tiled = np.tile(quantization_matrix, (block_height_num, block_width_num))
-
-        return np.round(dct / quantization_matrix_tiled).astype(np.int8)
-
-
-
-class _CompressQuantiseAcrossChannels:
-    def __init__(self, blockwise_compression, blockwise_quantization):
-        self.compression = blockwise_compression
-        self.quantize = blockwise_quantization
-
-    def __call__(self, image: np.ndarray, *args, **kwargs) -> np.ndarray:
-        channels, height, width = image.shape
-        assert channels == 3, f'channels must be 3 YCbCr but got {channels} instead'
-
-
-        y = self.compression(image[0, :, :], *args, **kwargs)
-        cb = self.compression(image[1, :, :], *args, **kwargs)
-        cr = self.compression(image[2, :, :], *args, **kwargs)
-
-        y = self.quantize(y, 'l',  *args, **kwargs)
-        cb = self.quantize(cb, 'c', *args, **kwargs)
-        cr = self.quantize(cr, 'c',  *args, **kwargs)
-
-
-        return np.stack((y, cb, cr), axis=-3)
-
-
-
-
-
-#%%
