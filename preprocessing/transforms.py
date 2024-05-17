@@ -29,13 +29,13 @@ CHROMINANCE_QUANTIZATION_MATRIX = np.array([
 class ConvertToYcbcr:
     def __call__(self, img: torch.Tensor) -> torch.Tensor:
         img = img.to(dtype=torch.float64)
-        r = img[0, :, :]
-        g = img[1, :, :]
-        b = img[2, :, :]
+        r = img[..., 0, :, :]
+        g = img[..., 1, :, :]
+        b = img[..., 2, :, :]
 
-        y = 0.299 * r + 0.587 * g + 0.114 * b
-        cb = -0.168736 * r - 0.331264 * g + 0.5 * b + 128
-        cr = 0.5 * r - 0.418688 * g - 0.081312 * b + 128
+        y = torch.tensor([0.299], dtype=torch.float64) * r + torch.tensor([0.587], dtype=torch.float64) * g + torch.tensor([0.114], dtype=torch.float64) * b
+        cb = torch.tensor([-0.168736], dtype=torch.float64) * r - torch.tensor([0.331264], dtype=torch.float64) * g + torch.tensor([0.5], dtype=torch.float64) * b + torch.tensor([128], dtype=torch.float64)
+        cr = torch.tensor([0.5], dtype=torch.float64) * r - torch.tensor([0.418688], dtype=torch.float64) * g - torch.tensor([0.081312], dtype=torch.float64) * b + torch.tensor([128], dtype=torch.float64)
         return torch.stack((y, cb, cr), dim=0)
 
 
@@ -74,7 +74,7 @@ class CompressedToTensor:
         elif isinstance(image, np.ndarray):
             return torch.from_numpy(image.transpose((2, 0, 1)))
         else:
-            output = functional.to_tensor(image).clone() *256
+            output = functional.to_tensor(image).clone() *255
             return output.to(dtype=torch.uint8)
 
 
@@ -200,7 +200,7 @@ class _BlockwiseDct:
         height, width = image.shape
         block_height, block_width = self.block_size
 
-        dct_blocks = np.zeros_like(image, dtype=np.float32)
+        dct_blocks = np.zeros_like(image, dtype=np.float64)
 
 
         for i in range(0, height, block_height):
