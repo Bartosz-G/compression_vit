@@ -28,6 +28,7 @@ CHROMINANCE_QUANTIZATION_MATRIX = np.array([
 
 class ConvertToYcbcr:
     def __call__(self, img: torch.Tensor) -> torch.Tensor:
+        img = img.to(dtype=torch.float64)
         r = img[0, :, :]
         g = img[1, :, :]
         b = img[2, :, :]
