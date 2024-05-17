@@ -1,6 +1,152 @@
 import torch
 import numpy as np
+from scipy.fft import dctn, idctn
 from torchvision.transforms import functional
+
+LUMINANCE_QUANTIZATION_MATRIX = np.array([
+    [16, 11, 10, 16, 24, 40, 51, 61],
+    [12, 12, 14, 19, 26, 58, 60, 55],
+    [14, 13, 16, 24, 40, 57, 69, 56],
+    [14, 17, 22, 29, 51, 87, 80, 62],
+    [18, 22, 37, 56, 68, 109, 103, 77],
+    [24, 35, 55, 64, 81, 104, 113, 92],
+    [49, 64, 78, 87, 103, 121, 120, 101],
+    [72, 92, 95, 98, 112, 100, 103, 99]
+])
+
+CHROMINANCE_QUANTIZATION_MATRIX = np.array([
+    [17, 18, 24, 47, 99, 99, 99, 99],
+    [18, 21, 26, 66, 99, 99, 99, 99],
+    [24, 26, 56, 99, 99, 99, 99, 99],
+    [47, 66, 99, 99, 99, 99, 99, 99],
+    [99, 99, 99, 99, 99, 99, 99, 99],
+    [99, 99, 99, 99, 99, 99, 99, 99],
+    [99, 99, 99, 99, 99, 99, 99, 99],
+    [99, 99, 99, 99, 99, 99, 99, 99]
+])
+
+
+
+
+
+
+class ConvertToFrequencyDomain:
+    def __init__(self, compression_algorithm = dctn, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
+        self.blockwise_dct = BlockwiseDct(compression_algorithm=compression_algorithm, block_size=block_size, *args, **kwargs)
+
+    def __call__(self, img: torch.Tensor, *args, **kwargs) -> torch.Tensor:
+        output = torch.zeros_like(img)
+        channels = img.shape[0]
+        for i in range(channels):
+            output[i, :, :] = torch.from_numpy(self.blockwise_dct(img[i, :, :].numpy(), *args, **kwargs))
+
+        return output
+
+
+
+
+class BlockwiseDct:
+    """
+    A class to perform blockwise Discrete Cosine Transform (DCT) on an image.
+
+    Parameters
+    ----------
+    compression_algorithm : callable, optional
+        The compression algorithm to use. Default is `scipy.fft.dctn`.
+    block_size : tuple[int, int], optional
+        The size of the blocks to divide the image into. Default is (8, 8).
+    *args : tuple
+        Additional positional arguments to pass to the compression algorithm.
+    **kwargs : dict
+        Additional keyword arguments to pass to the compression algorithm.
+
+    Methods
+    -------
+    __call__(image: np.ndarray, *args, **kwargs) -> np.ndarray
+        Applies the blockwise DCT to the given image.
+
+    Parameters for __call__ method
+    ------------------------------
+    image : np.ndarray
+        The input image on which the blockwise DCT is to be performed.
+    *args : tuple
+        Additional positional arguments to pass to the compression algorithm.
+    **kwargs : dict
+        Additional keyword arguments to pass to the compression algorithm.
+    """
+
+    def __init__(self, compression_algorithm = dctn, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
+        self.compression = compression_algorithm
+        self.block_size = block_size
+        self.args = args
+        self.kwargs = kwargs
+
+    def __call__(self, image: np.ndarray,  *args, **kwargs):
+        height, width = image.shape
+        block_height, block_width = self.block_size
+
+        dct_blocks = np.zeros_like(image, dtype=np.float32)
+
+
+        for i in range(0, height, block_height):
+            for j in range(0, width, block_width):
+                block = image[i:i+block_height, j:j+block_width]
+
+                dct_block = self.compression(block, *self.args, **self.kwargs)
+
+                dct_blocks[i:i+block_height, j:j+block_width] = dct_block
+
+        return dct_blocks
+
+
+
+class BlockwiseQuantize:
+    def __init__(self,
+                 luminance_matrix: np.ndarray = LUMINANCE_QUANTIZATION_MATRIX,
+                 chrominance_matrix: np.ndarray = CHROMINANCE_QUANTIZATION_MATRIX,
+                 block_size: tuple[int, int] = (8, 8),
+                 alpha: int = 1,) -> None:
+        self.luminance_matrix = luminance_matrix
+        self.chrominance_matrix = chrominance_matrix
+        self.block_size = block_size
+        self.alpha = alpha
+
+    def __call__(self, dct, mode = 'l', *args, **kwargs) -> np.ndarray:
+        quantization_matrix = self.luminance_matrix if mode == 'l' else self.chrominance_matrix
+
+        quantization_matrix = quantization_matrix * self.alpha
+
+        height, width = dct.shape
+        block_height_num, block_width_num = height // self.block_size[0], width // self.block_size[1]
+
+        quantization_matrix_tiled = np.tile(quantization_matrix, (block_height_num, block_width_num))
+
+        return np.round(dct / quantization_matrix_tiled).astype(np.int8)
+
+
+
+class CompressQuantiseAcrossChannels:
+    def __init__(self, blockwise_compression, blockwise_quantization):
+        self.compression = blockwise_compression
+        self.quantize = blockwise_quantization
+
+    def __call__(self, image: np.ndarray, *args, **kwargs) -> np.ndarray:
+        channels, height, width = image.shape
+        assert channels == 3, f'channels must be 3 YCbCr but got {channels} instead'
+
+
+        y = self.compression(image[0, :, :], *args, **kwargs)
+        cb = self.compression(image[1, :, :], *args, **kwargs)
+        cr = self.compression(image[2, :, :], *args, **kwargs)
+
+        y = self.quantize(y, 'l',  *args, **kwargs)
+        cb = self.quantize(cb, 'c', *args, **kwargs)
+        cr = self.quantize(cr, 'c',  *args, **kwargs)
+
+
+        return np.stack((y, cb, cr), axis=-3)
+
+
 
 
 class CompressedToTensor:
