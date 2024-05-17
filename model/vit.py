@@ -7,7 +7,7 @@ from .nn import LinearProjection, LinearProjectionOfFlattenedPatches
 
 class CompressedVisionTransformer(nn.Module):
     def __init__(self,
-                 ac: int,
+                 ac: int, # Required for proper positional encoding
                  channels: int,
                  patch_num: int,
                  num_classes: int,
