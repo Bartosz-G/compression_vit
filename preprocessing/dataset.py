@@ -6,10 +6,10 @@ from typing import Optional, Tuple, Any, Union, Callable
 from pathlib import Path
 from copy import deepcopy
 from .transforms import (LUMINANCE_QUANTIZATION_MATRIX,
-                        CHROMINANCE_QUANTIZATION_MATRIX,
-                        BlockwiseDct,
-                        BlockwiseQuantize,
-                        CompressQuantiseAcrossChannels)
+                         CHROMINANCE_QUANTIZATION_MATRIX,
+                         _BlockwiseDct,
+                         _DefaultBlockwiseQuantize,
+                         _CompressQuantiseAcrossChannels)
 
 
 
@@ -41,13 +41,13 @@ class ApplyAcrossBatch:
 
 
 
-blockwise_dct = BlockwiseDct(compression_algorithm=dctn, block_size=BLOCK_SIZE, norm='ortho')
-blockwise_quantize = BlockwiseQuantize(luminance_matrix=LUMINANCE_QUANTIZATION_MATRIX,
-                                       chrominance_matrix=CHROMINANCE_QUANTIZATION_MATRIX,
-                                       block_size=BLOCK_SIZE,
-                                       alpha=ALPHA)
-compress_quantise_across_channels = CompressQuantiseAcrossChannels(blockwise_compression=blockwise_dct,
-                                                                   blockwise_quantization=blockwise_quantize)
+blockwise_dct = _BlockwiseDct(compression_algorithm=dctn, block_size=BLOCK_SIZE, norm='ortho')
+blockwise_quantize = _DefaultBlockwiseQuantize(luminance_matrix=LUMINANCE_QUANTIZATION_MATRIX,
+                                               chrominance_matrix=CHROMINANCE_QUANTIZATION_MATRIX,
+                                               block_size=BLOCK_SIZE,
+                                               alpha=ALPHA)
+compress_quantise_across_channels = _CompressQuantiseAcrossChannels(blockwise_compression=blockwise_dct,
+                                                                    blockwise_quantization=blockwise_quantize)
 
 
 
