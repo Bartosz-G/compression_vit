@@ -149,6 +149,7 @@ class ZigZagOrder:
 
 
 class ChooseAC:
+    __slots__ = ['ac'] # Slots magic
     def __init__(self, ac: int):
         self.ac = ac
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
