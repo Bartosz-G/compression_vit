@@ -4,6 +4,29 @@ from .nn import LinearProjection, LinearProjectionOfFlattenedPatches
 
 
 
+def activation_getter(activation: str) -> nn.Module:
+    activations = {
+        "relu": nn.ReLU(),
+        "sigmoid": nn.Sigmoid(),
+        "tanh": nn.Tanh(),
+        "leaky_relu": nn.LeakyReLU(),
+        "softmax": nn.Softmax(dim=1),
+        "log_softmax": nn.LogSoftmax(dim=1),
+        "elu": nn.ELU(),
+        "selu": nn.SELU(),
+        "gelu": nn.GELU(),
+        "softplus": nn.Softplus(),
+        "softsign": nn.Softsign(),
+        "hardtanh": nn.Hardtanh(),
+        "prelu": nn.PReLU(),
+        "rrelu": nn.RReLU(),
+        "softmin": nn.Softmin(dim=1),
+    }
+
+    return activations[activation.casefold()]
+
+
+
 
 class CompressedVisionTransformer(nn.Module):
     def __init__(self,
@@ -15,7 +38,7 @@ class CompressedVisionTransformer(nn.Module):
                  nhead: int = 8,
                  dim_feedforward: int = 1024,
                  dropout: int = 0.1,
-                 activation = nn.ReLU(),
+                 activation: str | nn.Module = nn.ReLU(),
                  ntransformers: int = 4,
                  layer_norm_eps:float = 1e-5,
                  norm_first: bool = False,
@@ -24,7 +47,7 @@ class CompressedVisionTransformer(nn.Module):
         super(CompressedVisionTransformer, self).__init__()
 
         self.learnable_positional = learnable_positional
-        self.activation = activation
+        self.activation = activation_getter(activation) if isinstance(activation, str) else activation
 
         self.linear_projection = LinearProjection(ac=ac,
                                                   channels=channels,
@@ -47,7 +70,7 @@ class CompressedVisionTransformer(nn.Module):
                                            nhead=nhead,
                                            dim_feedforward=dim_feedforward,
                                            dropout=dropout,
-                                           activation=activation,
+                                           activation=self.activation,
                                            layer_norm_eps=layer_norm_eps,
                                            batch_first=True,
                                            norm_first=norm_first)
@@ -57,7 +80,7 @@ class CompressedVisionTransformer(nn.Module):
 
         self._pre_training_head = nn.Sequential(nn.LayerNorm(d_model, eps=layer_norm_eps),
                                                 nn.Linear(d_model, dim_feedforward, bias=bias),
-                                                activation,
+                                                self.activation,
                                                 nn.Linear(dim_feedforward, num_classes, bias=bias)
                                                 )
 
@@ -122,6 +145,9 @@ class VisionTransformer(nn.Module):
                  bias: bool = True,
                  learnable_positional: bool = True):
         super(VisionTransformer, self).__init__()
+
+        self.activation = activation_getter(activation) if isinstance(activation, str) else activation
+
         self.img_size = (height, width)
 
         # Calculating the correct dimensions:
@@ -143,7 +169,7 @@ class VisionTransformer(nn.Module):
                 nhead=nhead,
                 dim_feedforward=dim_feedforward,
                 dropout=dropout,
-                activation=nn.ReLU(),
+                activation=self.activation,
                 norm_first=norm_first,
                 layer_norm_eps=layer_norm_eps,))
 
@@ -151,7 +177,7 @@ class VisionTransformer(nn.Module):
 
         self._pre_training_head = nn.Sequential(nn.LayerNorm(d_model, eps=layer_norm_eps),
                                                 nn.Linear(d_model, dim_feedforward),
-                                                activation,
+                                                self.activation,
                                                 nn.Linear(dim_feedforward, num_classes))
 
         self._fine_tunning_head = nn.Sequential(nn.Linear(d_model, num_classes, bias=bias))
