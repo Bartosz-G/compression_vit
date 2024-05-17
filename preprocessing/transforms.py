@@ -41,13 +41,15 @@ class ConvertToYcbcr:
 
 class ConvertToFrequencyDomain:
     def __init__(self, compression_algorithm = dctn, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
+        self.args = args
+        self.kwargs = kwargs
         self.blockwise_dct = _BlockwiseDct(compression_algorithm=compression_algorithm, block_size=block_size, *args, **kwargs)
 
     def __call__(self, img: torch.Tensor, *args, **kwargs) -> torch.Tensor:
         output = torch.zeros_like(img)
         channels = img.shape[0]
         for i in range(channels):
-            output[i, :, :] = torch.from_numpy(self.blockwise_dct(img[i, :, :].numpy(), *args, **kwargs))
+            output[i, :, :] = torch.from_numpy(self.blockwise_dct(img[i, :, :].numpy(), *self.args, **self.kwargs))
 
         return output
 
@@ -71,7 +73,8 @@ class CompressedToTensor:
         elif isinstance(image, np.ndarray):
             return torch.from_numpy(image.transpose((2, 0, 1)))
         else:
-            return functional.to_tensor(image)
+            output = functional.to_tensor(image).clone() *256
+            return output.to(dtype=torch.uint8)
 
 
 
@@ -80,8 +83,12 @@ class Quantize:
                  quantization_matrices: list[np.ndarray | torch.Tensor],
                  block_size: tuple[int, int] = (8, 8),
                  alpha: int = 1,
-                 floor: bool = True) -> None:
+                 floor: bool = True,
+                 *args,
+                 **kwargs) -> None:
         # quantization_matrices must be equal to the number of channels
+        self.args = args
+        self.kwargs = kwargs
         self.blockwise_quantize = [_BlockwiseQuantize(qm, block_size, alpha, floor) for qm in quantization_matrices]
 
     def __call__(self, img: torch.Tensor, *args, **kwargs) -> torch.Tensor:
@@ -89,7 +96,7 @@ class Quantize:
         channels = img.shape[0]
         assert channels == len(self.blockwise_quantize), f'got number of channels {channels} but expected {len(self.blockwise_quantize)}'
         for i, quantization in enumerate(self.blockwise_quantize):
-            output[i, :, :] = quantization(img[i, :, :])
+            output[i, :, :] = quantization(img[i, :, :], *self.args, **self.kwargs)
         return output
 
 class _BlockwiseQuantize:
@@ -98,7 +105,7 @@ class _BlockwiseQuantize:
                  block_size: tuple[int, int] = (8, 8),
                  alpha: int = 1,
                  floor: bool = True) -> None:
-        self.quantization_matrix = quantitization_matrix if isinstance(quantitization_matrix, np.ndarray) else quantitization_matrix.numpy()
+        self.quantitization_matrix = quantitization_matrix if isinstance(quantitization_matrix, np.ndarray) else quantitization_matrix.numpy()
         self.block_size = block_size
         self.alpha = alpha
         self.floor = floor
@@ -109,7 +116,7 @@ class _BlockwiseQuantize:
         height, width = dct.shape
         block_height_num, block_width_num = height // self.block_size[0], width // self.block_size[1]
 
-        quantization_matrix_tiled = np.tile(self.quantization_matrix, (block_height_num, block_width_num))
+        quantization_matrix_tiled = np.tile(self.quantitization_matrix, (block_height_num, block_width_num))
 
         if self.floor:
             return torch.from_numpy(np.round(dct / quantization_matrix_tiled).astype(np.int8)).float()
