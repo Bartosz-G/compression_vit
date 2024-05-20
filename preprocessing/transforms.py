@@ -83,7 +83,7 @@ class Quantize:
     def __init__(self,
                  quantization_matrices: list[np.ndarray | torch.Tensor],
                  block_size: tuple[int, int] = (8, 8),
-                 alpha: int = 1,
+                 alpha: float = 1.0,
                  floor: bool = True,
                  *args,
                  **kwargs) -> None:
