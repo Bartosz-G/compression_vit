@@ -173,6 +173,7 @@ class VisionTransformer(nn.Module):
                  learnable_positional: bool = True):
         super(VisionTransformer, self).__init__()
 
+        self.learnable_positional = learnable_positional
         self.activation = activation_getter(activation) if isinstance(activation, str) else activation
 
         self.img_size = (height, width)
@@ -184,7 +185,7 @@ class VisionTransformer(nn.Module):
 
         self.cls_token = nn.Parameter(torch.randn(1, d_model))
 
-        self.position_embedding = nn.Parameter(torch.randn(N + 1, d_model)) if learnable_positional else None
+        self.positional = nn.Parameter(torch.randn(N + 1, d_model)) if self.learnable_positional else None
 
         self.linear_projection = LinearProjectionOfFlattenedPatches(
             channels, height, width, patch_size, d_model)
