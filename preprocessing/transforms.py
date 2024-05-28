@@ -158,7 +158,8 @@ class ChooseAC:
 
 class FlattenZigZag:
     def __call__(self, image: torch.Tensor) -> torch.Tensor:
-        return torch.flatten(image, start_dim = -2, end_dim = -1)
+        patch_num = image.shape[-2]
+        return image.permute((1, 0, 2)).reshape(patch_num, -1).flatten(start_dim=1, end_dim=-1)
 
 
 class _BlockwiseDct:

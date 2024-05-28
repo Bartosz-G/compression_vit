@@ -1,7 +1,5 @@
 import torch
 from torch import nn
-from .nn import LinearProjection, LinearProjectionOfFlattenedPatches
-
 
 
 def activation_getter(activation: str) -> nn.Module:
@@ -46,14 +44,12 @@ class CompressedVisionTransformer(nn.Module):
                  learnable_positional: bool = True):
         super(CompressedVisionTransformer, self).__init__()
 
+        self.dct = ac + 1
+
         self.learnable_positional = learnable_positional
         self.activation = activation_getter(activation) if isinstance(activation, str) else activation
 
-        self.linear_projection = LinearProjection(ac=ac,
-                                                  channels=channels,
-                                                  patch_num=patch_num,
-                                                  d_model=d_model,
-                                                  bias=bias)
+        self.linear_projection = nn.Linear(self.dct * channels, d_model, bias=bias)
 
         self.cls_token = nn.Parameter(torch.zeros(1, 1, d_model))
 
@@ -99,7 +95,7 @@ class CompressedVisionTransformer(nn.Module):
 
     def init_weights(self, init_fn) -> None:
         init_fn(self.cls_token)
-        self.linear_projection.init_weights(init_fn=init_fn)
+        init_fn(self.linear_projection)
         init_fn(self._fine_tunning_head)
         init_fn(self._pre_training_head)
 
@@ -116,7 +112,6 @@ class CompressedVisionTransformer(nn.Module):
     def _with_positional(self, X):
         return X + self.positional if self.learnable_positional else X if X.shape[:-2] else X.unsqueeze(0) # prevents transformer encoder from receiving unbatched input
 
-
     def forward(self, X):
         X = self.linear_projection(X)
         X = self._concat_cls_token(X)
@@ -124,6 +119,38 @@ class CompressedVisionTransformer(nn.Module):
         cls_representation = self.encoder(X)[:, 0, :]
         return self.head(cls_representation)
 
+
+class LinearProjectionOfFlattenedPatches(nn.Module):
+    def __init__(self, in_channels: int, heigth: int, width: int, patch_size: int, d_model: int):
+        super(LinearProjectionOfFlattenedPatches, self).__init__()
+        self.img_size = (heigth, width)
+        self.patch_size = patch_size  # P
+        self.in_channels = in_channels  # C
+
+        self.N = (self.img_size[0] * self.img_size[1]) / (patch_size**2)
+        assert self.N % 1 == 0, f"num_patches must be divisible by patch size: {patch_size}, size: {self.img_size}"
+        self.N = int(self.N)
+        patch_dimensions = patch_size * patch_size * in_channels
+
+        # Linear projection of patches into latent vector of dimension d_model
+        self.projection = nn.Linear(patch_dimensions, d_model)
+
+    def init_weights(self, init_fn):
+        init_fn(self.projection.weight)
+
+    def forward(self, x):
+        batch_size = x.shape[:-3]
+        permutate_dim = (0, 2, 1, 3) if batch_size else (1, 0, 2)
+
+        # Divide images into patches and flatten
+        x = x.unfold(2, self.patch_size, self.patch_size).unfold(3, self.patch_size, self.patch_size)
+        x = x.contiguous().view(*batch_size, self.in_channels, self.N, -1)
+        x = torch.permute(x, permutate_dim).contiguous().view(*batch_size, self.N, -1)
+
+        # Apply linear projection to each patch
+        x = self.projection(x)
+
+        return x
 
 
 

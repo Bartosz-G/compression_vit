@@ -1,7 +1,7 @@
 import torch
 from torch import nn
 import torch.nn.functional as F
-from .nn import LinearProjection, LinearProjection1d
+from .blocks import LinearProjection, LinearProjection1d
 
 class ResBlock(nn.Module):
     expansion = 1
