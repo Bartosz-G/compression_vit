@@ -156,7 +156,7 @@ class LinearProjectionOfFlattenedPatches(nn.Module):
 
 class VisionTransformer(nn.Module):
     def __init__(self,
-                 in_channels: int,
+                 channels: int,
                  height: int,
                  width: int,
                  patch_size: int,
@@ -187,7 +187,7 @@ class VisionTransformer(nn.Module):
         self.position_embedding = nn.Parameter(torch.randn(N + 1, d_model)) if learnable_positional else None
 
         self.linear_projection = LinearProjectionOfFlattenedPatches(
-            in_channels, height, width, patch_size, d_model)
+            channels, height, width, patch_size, d_model)
 
         transformer_encoder_list = nn.ModuleList()
         for _ in range(ntransformers):
