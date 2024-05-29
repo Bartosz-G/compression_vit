@@ -3,6 +3,7 @@ from torch import nn
 import torch
 import numpy as np
 import random
+import os
 from contextlib import contextmanager
 
 
@@ -28,6 +29,22 @@ def set_seed(seed):
             torch.cuda.random.set_rng_state(state_cuda)
         np.random.set_state(state_np)
         random.setstate(state_random)
+
+
+def resume_from_checkpoint(checkpoint_path, model, optimizer):
+    if os.path.exists(checkpoint_path):
+        checkpoint = torch.load(checkpoint_path)
+        print(f"Found checkpoint: {checkpoint_path}")
+        model.load_state_dict(checkpoint['model_state_dict'])
+        print(f'Loaded model successfully')
+        optimizer.load_state_dict(checkpoint['optimizer_state_dict'])
+        print(f'Loaded optimizer successfully')
+        start_epoch = checkpoint['epoch'] + 1
+        return model, optimizer, start_epoch
+    else:
+        start_epoch = 0
+        print(f"No checkpoint found at {checkpoint_path}")
+    return start_epoch
 
 
 
