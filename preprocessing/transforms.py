@@ -78,6 +78,11 @@ class CompressedToTensor:
             return output.to(dtype=torch.uint8)
 
 
+class ScaledPixels:
+    def __call__(self, image: torch.Tensor) -> torch.Tensor:
+        return image / 255
+
+
 
 class Quantize:
     def __init__(self,
@@ -209,6 +214,8 @@ class _BlockwiseDct:
             for j in range(0, width, block_width):
                 block = image[i:i+block_height, j:j+block_width]
 
+                # Scaling to [-128, 127]
+                block = block - 128
                 dct_block = self.compression(block, *self.args, **self.kwargs)
 
                 dct_blocks[i:i+block_height, j:j+block_width] = dct_block

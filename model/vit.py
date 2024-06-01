@@ -57,3 +57,30 @@ class CompressedVisionTransformer(ViT):
         # where S is the source sequence length, N is the batch size, E is the
         # embedding dimension
         return x
+
+
+
+
+class LinVisionTransformer(ViT):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        self.conv_proj = None
+        self.lin_proj = nn.Linear(self.patch_size * self.patch_size * 3, self.hidden_dim)
+        self.unfold = nn.Unfold(kernel_size=(kwargs['patch_size'], kwargs['patch_size']), stride=(kwargs['patch_size'], kwargs['patch_size']))
+
+        fan_in = self.lin_proj.in_features
+        nn.init.trunc_normal_(self.lin_proj.weight, std=math.sqrt(1 / fan_in))
+        nn.init.zeros_(self.lin_proj.bias)
+
+
+    def _process_input(self, x: torch.Tensor) -> torch.Tensor:
+        n, c, h, w = x.shape
+        # p = self.patch_size
+        torch._assert(h == self.image_size, f"Wrong image height! Expected {self.image_size} but got {h}!")
+        torch._assert(w == self.image_size, f"Wrong image width! Expected {self.image_size} but got {w}!")
+
+        # (n, c, h, w) -> (n, n_h * n_w, p*p*3)
+        x = self.unfold(x).transpose(-2, -1)
+        # (n, n_h * n_w, p*p*3) -> (n, n_h * n_w, hidden_dim)
+        return self.lin_proj(x)
+
