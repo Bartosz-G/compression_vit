@@ -2,7 +2,6 @@ import torch
 import numpy as np
 from scipy.fft import dctn, idctn
 from torchvision.transforms import functional
-#test commit
 
 LUMINANCE_QUANTIZATION_MATRIX = np.array([
     [16, 11, 10, 16, 24, 40, 51, 61],
