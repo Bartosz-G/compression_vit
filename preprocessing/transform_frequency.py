@@ -1,15 +1,15 @@
 import torch
 import numpy as np
-from scipy.fft import dctn, idctn
+from scipy.fft import dct, idct, dctn, idctn
 
 class ConvertToFrequencyDomain:
-    def __init__(self, compression_algorithm = dctn, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
+    def __init__(self, compression_algorithm = dct, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
         self.args = args
         self.kwargs = kwargs
         self.blockwise_dct = _BlockwiseDct(compression_algorithm=compression_algorithm, block_size=block_size, *args, **kwargs)
 
     def __call__(self, img: torch.Tensor, *args, **kwargs) -> torch.Tensor:
-        output = torch.zeros_like(img)
+        output = torch.zeros_like(img, dtype=torch.float64)
         channels = img.shape[0]
         for i in range(channels):
             output[i, :, :] = torch.from_numpy(self.blockwise_dct(img[i, :, :].numpy(), *self.args, **self.kwargs))
@@ -46,7 +46,7 @@ class _BlockwiseDct:
         Additional keyword arguments to pass to the compression algorithm.
     """
 
-    def __init__(self, compression_algorithm = dctn, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
+    def __init__(self, compression_algorithm = dct, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
         self.compression = compression_algorithm
         self.block_size = block_size
         self.args = args
@@ -63,21 +63,21 @@ class _BlockwiseDct:
                 block = image[i:i+block_height, j:j+block_width]
 
                 # Scaling to [-128, 127]
-                block = block - 128
-                dct_block = self.compression(block, *self.args, **self.kwargs)
+                block = block.astype(np.float64) - 128
+                dct_block = self.compression(self.compression(block.T, *self.args, **self.kwargs).T, *self.args, **self.kwargs)
 
                 dct_blocks[i:i+block_height, j:j+block_width] = dct_block
 
         return dct_blocks
 
 class ConvertToSpatialDomain:
-    def __init__(self, decompression_algorithm = idctn, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
+    def __init__(self, decompression_algorithm = idct, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
         self.args = args
         self.kwargs = kwargs
         self.blockwise_idct = _BlockwiseIdct(decompression_algorithm=decompression_algorithm, block_size=block_size, *args, **kwargs)
 
     def __call__(self, freq_img: torch.Tensor, *args, **kwargs) -> torch.Tensor:
-        output = torch.zeros_like(freq_img)
+        output = torch.zeros_like(freq_img, dtype=torch.float64)
         channels = freq_img.shape[0]
         for i in range(channels):
             output[i, :, :] = torch.from_numpy(self.blockwise_idct(freq_img[i, :, :].numpy(), *self.args, **self.kwargs))
@@ -114,7 +114,7 @@ class _BlockwiseIdct:
         Additional keyword arguments to pass to the decompression algorithm.
     """
 
-    def __init__(self, decompression_algorithm = idctn, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
+    def __init__(self, decompression_algorithm = idct, block_size: tuple[int, int] = (8, 8), *args, **kwargs) -> None:
         self.decompression = decompression_algorithm
         self.block_size = block_size
         self.args = args
@@ -130,7 +130,8 @@ class _BlockwiseIdct:
             for j in range(0, width, block_width):
                 block = image[i:i+block_height, j:j+block_width]
 
-                idct_block = self.decompression(block, *self.args, **self.kwargs)
+
+                idct_block = self.decompression(self.decompression(block.T, *self.args, **self.kwargs).T, *self.args, **self.kwargs)
 
                 # Rescaling back from [-128, 127] to [0, 255]
                 idct_block = idct_block + 128

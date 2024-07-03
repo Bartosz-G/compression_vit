@@ -9,7 +9,5 @@ trainingJob.ipynb
 .gitignore
 .DS_Store
 data/
-model/__pycache__/baseline.cpython-311.pyc
-model/__pycache__/init.cpython-311.pyc
-model/__pycache__/vit.cpython-311.pyc
-preprocessing/__pycache__/transforms.cpython-311.pyc
+*.cpython-3*.pyc
+workbook.ipynb
